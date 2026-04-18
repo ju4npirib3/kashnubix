@@ -1,22 +1,40 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 
 export default function LoginPage() {
-  const { user, loading, signInWithGoogle } = useAuth();
+  const { user, loading, authError, signInWithGoogle } = useAuth();
   const router = useRouter();
+  const [signing, setSigning] = useState(false);
 
   useEffect(() => {
     if (!loading && user) router.replace('/home');
   }, [user, loading, router]);
 
+  async function handleSignIn() {
+    setSigning(true);
+    try {
+      await signInWithGoogle();
+    } finally {
+      setSigning(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg-light dark:bg-bg-dark">
+        <div className="w-10 h-10 rounded-full border-4 border-accent border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-between bg-bg-light dark:bg-bg-dark px-8 py-16 safe-top safe-bottom">
-      {/* Logo */}
       <div />
+
       <motion.div
         className="flex flex-col items-center gap-8 w-full"
         initial={{ opacity: 0, y: 24 }}
@@ -33,16 +51,31 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="w-full space-y-4 mt-4">
+        <div className="w-full space-y-3 mt-4">
           <button
-            onClick={signInWithGoogle}
-            className="w-full flex items-center justify-center gap-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-2xl py-4 px-6 shadow-sm active:scale-[0.98] transition-transform"
+            onClick={handleSignIn}
+            disabled={signing}
+            className="w-full flex items-center justify-center gap-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-2xl py-4 px-6 shadow-sm active:scale-[0.98] transition-transform disabled:opacity-60"
           >
-            <GoogleIcon />
+            {signing ? (
+              <div className="w-5 h-5 rounded-full border-2 border-neutral-400 border-t-transparent animate-spin" />
+            ) : (
+              <GoogleIcon />
+            )}
             <span className="font-semibold text-neutral-800 dark:text-neutral-100">
-              Continuar con Google
+              {signing ? 'Iniciando sesión...' : 'Continuar con Google'}
             </span>
           </button>
+
+          {authError && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="w-full bg-expense/10 border border-expense/20 rounded-2xl px-4 py-3 text-sm text-expense text-center"
+            >
+              {authError}
+            </motion.div>
+          )}
         </div>
 
         <p className="text-xs text-neutral-400 dark:text-neutral-500 text-center px-4">
