@@ -27,6 +27,7 @@ export default function ShortcutsGrid({ onShortcut }: Props) {
   }
 
   async function saveEdit() {
+    if (draft.length === 0) { setEditing(false); return; }
     await updateShortcutsFn(draft);
     setEditing(false);
   }

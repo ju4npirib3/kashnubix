@@ -20,6 +20,15 @@ export default function AddAccountModal({ open, onClose }: Props) {
   const [currency, setCurrency] = useState('USD');
   const [saving, setSaving] = useState(false);
 
+  function resetAndClose() {
+    setName('');
+    setBalance('');
+    setType('checking');
+    setColor(ACCOUNT_COLORS[0]);
+    setCurrency('USD');
+    onClose();
+  }
+
   async function handleSubmit() {
     if (!name || !balance) return;
     setSaving(true);
@@ -33,12 +42,7 @@ export default function AddAccountModal({ open, onClose }: Props) {
         currency,
         createdAt: Date.now(),
       });
-      onClose();
-      setName('');
-      setBalance('');
-      setType('checking');
-      setColor(ACCOUNT_COLORS[0]);
-      setCurrency('USD');
+      resetAndClose();
     } finally {
       setSaving(false);
     }
@@ -51,7 +55,7 @@ export default function AddAccountModal({ open, onClose }: Props) {
           <motion.div
             className="fixed inset-0 bg-black/40 z-50"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={resetAndClose}
           />
           <motion.div
             className="fixed bottom-0 inset-x-0 max-w-md mx-auto z-50 bg-white dark:bg-neutral-900 rounded-t-3xl safe-bottom"
@@ -65,7 +69,7 @@ export default function AddAccountModal({ open, onClose }: Props) {
             <div className="px-6 pb-6 pt-2">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold dark:text-white">Nueva cuenta</h2>
-                <button onClick={onClose} className="p-2 rounded-full bg-neutral-100 dark:bg-neutral-800">
+                <button onClick={resetAndClose} className="p-2 rounded-full bg-neutral-100 dark:bg-neutral-800">
                   <X className="w-4 h-4 dark:text-white" />
                 </button>
               </div>

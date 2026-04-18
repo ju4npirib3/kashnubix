@@ -25,6 +25,15 @@ export default function AddMovementModal({ open, onClose, defaultType = 'expense
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '');
   const [saving, setSaving] = useState(false);
 
+  function resetAndClose() {
+    setAmount('');
+    setDescription('');
+    setCategory('');
+    setType(defaultType);
+    setAccountId(accounts[0]?.id ?? '');
+    onClose();
+  }
+
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
   async function handleSubmit() {
@@ -43,12 +52,7 @@ export default function AddMovementModal({ open, onClose, defaultType = 'expense
         date: Date.now(),
         createdAt: Date.now(),
       });
-      setAmount('');
-      setDescription('');
-      setCategory('');
-      setType(defaultType);
-      setAccountId(accounts[0]?.id ?? '');
-      onClose();
+      resetAndClose();
     } finally {
       setSaving(false);
     }
@@ -63,7 +67,7 @@ export default function AddMovementModal({ open, onClose, defaultType = 'expense
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={resetAndClose}
           />
           <motion.div
             className="fixed bottom-0 inset-x-0 max-w-md mx-auto z-50 bg-white dark:bg-neutral-900 rounded-t-3xl safe-bottom"
@@ -80,7 +84,7 @@ export default function AddMovementModal({ open, onClose, defaultType = 'expense
             <div className="px-6 pb-6 pt-2">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold dark:text-white">Nuevo movimiento</h2>
-                <button onClick={onClose} className="p-2 rounded-full bg-neutral-100 dark:bg-neutral-800">
+                <button onClick={resetAndClose} className="p-2 rounded-full bg-neutral-100 dark:bg-neutral-800">
                   <X className="w-4 h-4 dark:text-white" />
                 </button>
               </div>
