@@ -207,6 +207,9 @@ export default function AddMovementModal({
 
   async function handleSubmit() {
     if (!canSubmit || !user) return;
+    // Dismiss keyboard and close any open dropdowns before saving
+    (document.activeElement as HTMLElement)?.blur();
+    setShowSuggestions(false);
     const account = accounts.find(a => a.id === effectiveAccountId);
     if (!account) return;
     setSaving(true);
@@ -556,6 +559,7 @@ export default function AddMovementModal({
                     </p>
                   )}
                   <button
+                    type="button"
                     onClick={handleSubmit}
                     disabled={!canSubmit}
                     className="w-full py-4 bg-accent text-white font-bold text-base rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-40"
