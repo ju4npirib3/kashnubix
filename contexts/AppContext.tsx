@@ -80,8 +80,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return customCats.filter(c => c.type === 'income');
   })();
 
-  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0);
-  const prevTotalBalance = accounts.reduce((s, a) => s + a.previousBalance, 0);
+  // Credit card balances are liabilities — subtract them from net total
+  const totalBalance = accounts.reduce((s, a) => a.type === 'credit' ? s - a.balance : s + a.balance, 0);
+  const prevTotalBalance = accounts.reduce((s, a) => a.type === 'credit' ? s - a.previousBalance : s + a.previousBalance, 0);
   const balanceChange = calcPercentChange(totalBalance, prevTotalBalance);
 
   const now = Date.now();
