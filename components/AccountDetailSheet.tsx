@@ -114,16 +114,24 @@ export default function AccountDetailSheet({ account, onClose, onDelete }: Props
   const daysToCutoff = account.cutoffDay != null ? daysUntil(account.cutoffDay) : null;
   const paymentUrgent = daysToPayment != null && daysToPayment <= 5;
 
-  // Chart
-  const historyPoints = buildBalanceHistory(account.balance, accountMoves);
+  // Chart — for credit cards with MSI, replace each MSI movement's full amount
+  // with its monthly payment so the chart reflects the effective balance (not total debt)
+  const chartMovements = isCredit
+    ? accountMoves.map(m => {
+        const msiPlan = accountMsiPlans.find(p => p.movementId === m.id);
+        return msiPlan ? { ...m, amount: msiPlan.monthlyPayment } : m;
+      })
+    : accountMoves;
+  const chartBaseBalance = isCredit ? effectiveBalance : account.balance;
+  const historyPoints = buildBalanceHistory(chartBaseBalance, chartMovements);
   const chartData = historyPoints.map(p => ({
     balance: p.balance,
     label: format(new Date(p.date), 'd MMM', { locale: es }),
   }));
-  const firstBal = historyPoints[0]?.balance ?? account.balance;
-  const lastBal = historyPoints[historyPoints.length - 1]?.balance ?? account.balance;
+  const firstBal = historyPoints[0]?.balance ?? chartBaseBalance;
+  const lastBal = historyPoints[historyPoints.length - 1]?.balance ?? chartBaseBalance;
   const chartColor = isCredit
-    ? (account.balance === 0 ? '#00C07F' : '#FF3B30')
+    ? (effectiveBalance === 0 ? '#00C07F' : '#FF3B30')
     : (lastBal >= firstBal ? '#00C07F' : '#FF3B30');
 
   async function handlePay() {
