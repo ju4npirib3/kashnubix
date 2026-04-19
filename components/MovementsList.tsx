@@ -1,86 +1,117 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
-import { formatCurrency, CATEGORY_ICONS } from '@/lib/utils';
+import { formatCurrency, CATEGORY_ICONS, CATEGORY_COLORS } from '@/lib/utils';
 import { format, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
+import MovementDetailSheet from './MovementDetailSheet';
+import MovementsHistorySheet from './MovementsHistorySheet';
+import type { Movement } from '@/types';
 
-function groupByDate(movements: ReturnType<typeof useApp>['movements']) {
-  const groups: Record<string, typeof movements> = {};
+function groupByDate(movements: Movement[]) {
+  const groups: { label: string; items: Movement[] }[] = [];
+  const map = new Map<string, Movement[]>();
   for (const m of movements) {
     const d = new Date(m.date);
-    const key = isToday(d)
-      ? 'Hoy'
-      : isYesterday(d)
-      ? 'Ayer'
-      : format(d, 'd MMM yyyy', { locale: es });
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(m);
+    const key = isToday(d) ? 'Hoy' : isYesterday(d) ? 'Ayer' : format(d, "d 'de' MMMM", { locale: es });
+    if (!map.has(key)) { map.set(key, []); groups.push({ label: key, items: map.get(key)! }); }
+    map.get(key)!.push(m);
   }
   return groups;
 }
 
 export default function MovementsList() {
   const { movements } = useApp();
+  const [selected, setSelected] = useState<Movement | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   if (movements.length === 0) {
     return (
       <div className="px-5 mb-8">
-        <h3 className="font-semibold text-neutral-900 dark:text-white mb-3">Movimientos</h3>
-        <div className="card p-6 flex flex-col items-center gap-2 text-center">
-          <span className="text-4xl">📋</span>
-          <p className="font-medium text-neutral-700 dark:text-neutral-300">Sin movimientos</p>
-          <p className="text-sm text-neutral-400 dark:text-neutral-500">Registra tu primer ingreso o gasto</p>
+        <h3 className="font-bold text-neutral-900 dark:text-white mb-4">Movimientos</h3>
+        <div className="flex flex-col items-center gap-2 py-10 text-center">
+          <span className="text-3xl opacity-40">📋</span>
+          <p className="text-sm text-neutral-400 dark:text-neutral-500">Sin movimientos aún</p>
         </div>
       </div>
     );
   }
 
-  const groups = groupByDate(movements.slice(0, 30));
+  const groups = groupByDate(movements.slice(0, 40));
 
   return (
-    <motion.div
-      className="px-5 mb-8"
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.35 }}
-    >
-      <h3 className="font-semibold text-neutral-900 dark:text-white mb-3">Movimientos</h3>
-      <div className="space-y-4">
-        {Object.entries(groups).map(([date, items]) => (
-          <div key={date}>
-            <p className="text-xs font-semibold text-neutral-400 dark:text-neutral-500 mb-2 uppercase tracking-wider">{date}</p>
-            <div className="card overflow-hidden divide-y divide-neutral-100 dark:divide-neutral-800">
-              {items.map((m, i) => (
-                <motion.div
-                  key={m.id}
-                  className="flex items-center gap-3 px-4 py-3"
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${m.type === 'income' ? 'bg-income/10' : 'bg-neutral-100 dark:bg-neutral-800'}`}>
-                    <span className="text-xl">{CATEGORY_ICONS[m.category] ?? '📦'}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-neutral-900 dark:text-white text-sm truncate">{m.description}</p>
-                    <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate">{m.accountName} · {m.category}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-bold text-sm ${m.type === 'income' ? 'text-income' : 'text-expense'}`}>
-                      {m.type === 'income' ? '+' : '-'}{formatCurrency(m.amount)}
-                    </p>
-                    <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
-                      {format(new Date(m.date), 'HH:mm')}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
+    <>
+      <motion.div
+        className="px-5 mb-8"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-neutral-900 dark:text-white">Movimientos</h3>
+          <button
+            onClick={() => setShowHistory(true)}
+            className="text-xs font-semibold text-accent"
+          >
+            Ver todos →
+          </button>
+        </div>
+
+        <div className="space-y-5">
+          {groups.map(({ label, items }) => (
+            <div key={label}>
+              <p className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest mb-2 px-1">
+                {label}
+              </p>
+              <div className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden">
+                {items.map((m, i) => {
+                  const catColor = CATEGORY_COLORS[m.category] ?? '#8E8E93';
+                  const isIncome = m.type === 'income';
+                  const mainLabel = m.establishment?.trim() || m.description;
+                  const subLabel = m.establishment?.trim() ? m.category : null;
+
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => setSelected(m)}
+                      className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-neutral-50 dark:active:bg-neutral-800/60 transition-colors text-left"
+                      style={i > 0 ? { borderTop: '1px solid rgba(0,0,0,0.05)' } : undefined}
+                    >
+                      <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
+                        style={{ backgroundColor: catColor + '18' }}
+                      >
+                        {CATEGORY_ICONS[m.category] ?? '📦'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-neutral-900 dark:text-white truncate leading-tight">
+                          {mainLabel}
+                        </p>
+                        {subLabel && (
+                          <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">
+                            {subLabel}
+                          </p>
+                        )}
+                      </div>
+                      <p
+                        className={`text-sm font-bold flex-shrink-0 ${isIncome ? 'text-income' : 'text-expense'}`}
+                        style={{ fontVariantNumeric: 'tabular-nums' }}
+                      >
+                        {isIncome ? '+' : '−'}{formatCurrency(m.amount)}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </motion.div>
+          ))}
+        </div>
+      </motion.div>
+
+      <MovementDetailSheet movement={selected} onClose={() => setSelected(null)} />
+      <MovementsHistorySheet open={showHistory} onClose={() => setShowHistory(false)} />
+    </>
   );
 }

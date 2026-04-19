@@ -7,9 +7,16 @@ import { useApp } from '@/contexts/AppContext';
 import BottomNav from '@/components/BottomNav';
 import AddMovementModal from '@/components/AddMovementModal';
 import AddAccountModal from '@/components/AddAccountModal';
-import { Trash2, Plus, TrendingUp, TrendingDown } from 'lucide-react';
-import { formatCurrency, ACCOUNT_TYPE_LABELS, calcPercentChange } from '@/lib/utils';
+import AccountDetailSheet from '@/components/AccountDetailSheet';
+import { Plus, TrendingUp, TrendingDown } from 'lucide-react';
+import {
+  formatCurrency, ACCOUNT_TYPE_LABELS, calcPercentChange, buildBalanceHistory,
+} from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  AreaChart, Area, ResponsiveContainer, Tooltip,
+} from 'recharts';
+import type { Account } from '@/types';
 
 export default function AccountsPage() {
   const { user, loading } = useAuth();
@@ -17,7 +24,7 @@ export default function AccountsPage() {
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -25,18 +32,14 @@ export default function AccountsPage() {
 
   if (loading || !user) return null;
 
-  async function handleDelete(id: string) {
-    setDeletingId(id);
-    await deleteAccountFn(id);
-    setDeletingId(null);
-  }
-
   return (
     <div className="min-h-screen bg-bg-light dark:bg-bg-dark safe-top pb-28">
       <div className="px-5 pt-6 pb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">Cuentas</h1>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">{accounts.length} cuenta{accounts.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            {accounts.length} cuenta{accounts.length !== 1 ? 's' : ''}
+          </p>
         </div>
         <button
           onClick={() => setShowAddAccount(true)}
@@ -62,70 +65,120 @@ export default function AccountsPage() {
         <div className="px-5 space-y-3">
           <AnimatePresence>
             {accounts.map(account => {
+              const accountMoves = movements.filter(m => m.accountId === account.id);
               const change = calcPercentChange(account.balance, account.previousBalance);
               const isUp = change >= 0;
-              const accountMovements = movements.filter(m => m.accountId === account.id);
-              const totalIn = accountMovements.filter(m => m.type === 'income').reduce((s, m) => s + m.amount, 0);
-              const totalOut = accountMovements.filter(m => m.type === 'expense').reduce((s, m) => s + m.amount, 0);
+              const totalIn = accountMoves.filter(m => m.type === 'income').reduce((s, m) => s + m.amount, 0);
+              const totalOut = accountMoves.filter(m => m.type === 'expense').reduce((s, m) => s + m.amount, 0);
+              const history = buildBalanceHistory(account.balance, accountMoves);
+              const chartData = history.map(p => ({ balance: p.balance }));
+              const firstBal = history[0]?.balance ?? account.balance;
+              const lastBal = history[history.length - 1]?.balance ?? account.balance;
+              const chartColor = lastBal >= firstBal ? '#00C07F' : '#FF3B30';
 
               return (
-                <motion.div
+                <motion.button
                   key={account.id}
                   layout
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="card overflow-hidden shadow-sm"
+                  onClick={() => setSelectedAccount(account)}
+                  className="w-full card overflow-hidden shadow-sm active:scale-[0.99] transition-transform text-left"
                 >
                   {/* Card header */}
                   <div
                     className="p-4 relative overflow-hidden"
-                    style={{ background: `linear-gradient(135deg, ${account.color}, ${account.color}cc)` }}
+                    style={{ background: `linear-gradient(135deg, ${account.color}ee, ${account.color}99)` }}
                   >
-                    <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-white/10" />
+                    <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-white/10 pointer-events-none" />
                     <div className="relative flex items-start justify-between">
                       <div>
-                        <p className="text-white/70 text-xs">{ACCOUNT_TYPE_LABELS[account.type]}</p>
+                        <p className="text-white/70 text-xs font-semibold uppercase tracking-wider">
+                          {ACCOUNT_TYPE_LABELS[account.type]}
+                        </p>
                         <p className="text-white font-bold text-lg">{account.name}</p>
                       </div>
-                      <button
-                        onClick={() => handleDelete(account.id)}
-                        disabled={deletingId === account.id}
-                        className="p-2 rounded-full bg-white/20 active:bg-white/30"
-                      >
-                        <Trash2 className="w-4 h-4 text-white" />
-                      </button>
-                    </div>
-                    <p className="text-white text-2xl font-bold mt-3">{formatCurrency(account.balance, account.currency)}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <div className="bg-white/20 rounded-full px-2 py-0.5 flex items-center gap-1">
-                        {isUp ? <TrendingUp className="w-3 h-3 text-white" /> : <TrendingDown className="w-3 h-3 text-white" />}
-                        <span className="text-white text-xs font-semibold">{Math.abs(change).toFixed(1)}%</span>
+                      <div className="bg-white/20 rounded-full px-2.5 py-1 flex items-center gap-1">
+                        {isUp
+                          ? <TrendingUp className="w-3 h-3 text-white" />
+                          : <TrendingDown className="w-3 h-3 text-white" />
+                        }
+                        <span className="text-white text-xs font-bold">{Math.abs(change).toFixed(1)}%</span>
                       </div>
+                    </div>
+
+                    {/* Balance + mini chart side by side */}
+                    <div className="flex items-end justify-between mt-3">
+                      <p
+                        className="text-white font-black"
+                        style={{ fontSize: 26, fontVariantNumeric: 'tabular-nums' }}
+                      >
+                        {formatCurrency(account.balance, account.currency)}
+                      </p>
+
+                      {chartData.length >= 2 && (
+                        <div className="w-24 h-10 opacity-80">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                              <defs>
+                                <linearGradient id={`mini-${account.id}`} x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor={chartColor} stopOpacity={0.5} />
+                                  <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              <Tooltip
+                                contentStyle={{ display: 'none' }}
+                                cursor={false}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="balance"
+                                stroke={chartColor}
+                                strokeWidth={2}
+                                fill={`url(#mini-${account.id})`}
+                                dot={false}
+                                isAnimationActive={false}
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Stats */}
+                  {/* Stats row */}
                   <div className="flex divide-x divide-neutral-100 dark:divide-neutral-800">
                     <div className="flex-1 px-4 py-3">
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Total ingresos</p>
-                      <p className="font-bold text-income">{formatCurrency(totalIn)}</p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Ingresos</p>
+                      <p className="font-bold text-income" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        +{formatCurrency(totalIn, account.currency)}
+                      </p>
                     </div>
                     <div className="flex-1 px-4 py-3">
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Total gastos</p>
-                      <p className="font-bold text-expense">{formatCurrency(totalOut)}</p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Gastos</p>
+                      <p className="font-bold text-expense" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        -{formatCurrency(totalOut, account.currency)}
+                      </p>
                     </div>
                     <div className="flex-1 px-4 py-3">
                       <p className="text-xs text-neutral-500 dark:text-neutral-400">Movimientos</p>
-                      <p className="font-bold text-neutral-800 dark:text-neutral-200">{accountMovements.length}</p>
+                      <p className="font-bold text-neutral-800 dark:text-neutral-200">{accountMoves.length}</p>
                     </div>
                   </div>
-                </motion.div>
+                </motion.button>
               );
             })}
           </AnimatePresence>
         </div>
       )}
+
+      {/* Account detail sheet */}
+      <AccountDetailSheet
+        account={selectedAccount}
+        onClose={() => setSelectedAccount(null)}
+        onDelete={async (id) => { await deleteAccountFn(id); setSelectedAccount(null); }}
+      />
 
       <BottomNav onAddClick={() => setShowAdd(true)} />
       <AddMovementModal open={showAdd} onClose={() => setShowAdd(false)} />

@@ -5,12 +5,21 @@ import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AppProvider } from '@/contexts/AppContext';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import SwRegister from '@/components/SwRegister';
 
 export const metadata: Metadata = {
-  title: 'Leyva',
-  description: 'Gestor de gastos personal',
+  title: 'KashNubix',
+  description: 'Tu gestor financiero personal',
   manifest: '/manifest.json',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Leyva' },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'KashNubix' },
+  icons: {
+    icon: [
+      { url: '/logo.png', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', type: 'image/png' },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
@@ -37,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </AppProvider>
           </AuthProvider>
+          <SwRegister />
         </ThemeProvider>
       </body>
     </html>

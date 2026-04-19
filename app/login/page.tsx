@@ -42,10 +42,14 @@ export default function LoginPage() {
         transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
       >
         <div className="flex flex-col items-center gap-3">
-          <div className="w-20 h-20 rounded-3xl bg-accent flex items-center justify-center shadow-2xl shadow-accent/30">
-            <span className="text-white text-3xl font-bold">L</span>
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight text-neutral-900 dark:text-white">Leyva</h1>
+          {/* KashNubix logo */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="KashNubix"
+            className="w-24 h-24 rounded-3xl shadow-2xl shadow-accent/30"
+          />
+          <h1 className="text-4xl font-bold tracking-tight text-neutral-900 dark:text-white">KashNubix</h1>
           <p className="text-neutral-500 dark:text-neutral-400 text-center text-base">
             Tu gestor de gastos personal
           </p>

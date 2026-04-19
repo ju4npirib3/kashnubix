@@ -12,7 +12,7 @@ export function getGreeting(): string {
   return 'Buenas noches';
 }
 
-export function formatCurrency(amount: number, currency = 'USD'): string {
+export function formatCurrency(amount: number, currency = 'MXN'): string {
   return new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency,
@@ -41,7 +41,7 @@ export const ACCOUNT_COLORS = [
 ];
 
 export const ACCOUNT_TYPE_LABELS: Record<string, string> = {
-  checking: 'Corriente',
+  checking: 'Débito',
   savings: 'Ahorros',
   cash: 'Efectivo',
   investment: 'Inversión',
@@ -64,9 +64,89 @@ export const CATEGORY_ICONS: Record<string, string> = {
   Educación: '📚', Viajes: '✈️', Hogar: '🏠', Tecnología: '📱', Otros: '📦',
 };
 
+// iOS-style colors for each category
+export const CATEGORY_COLORS: Record<string, string> = {
+  Salario: '#34C759', Freelance: '#007AFF', Inversión: '#5856D6', Negocio: '#FF9500',
+  Regalo: '#FF2D55', Reembolso: '#32ADE6',
+  Comida: '#FF9500', Transporte: '#007AFF', Entretenimiento: '#AF52DE',
+  Salud: '#FF3B30', Ropa: '#FF2D55', Servicios: '#FFCC00',
+  Educación: '#34C759', Viajes: '#5AC8FA', Hogar: '#FF6B00',
+  Tecnología: '#5856D6', Otros: '#8E8E93',
+};
+
+// Default category objects (stable IDs for Firestore)
+export const DEFAULT_EXPENSE_CATS = [
+  { id: 'comida', name: 'Comida', icon: '🍔' },
+  { id: 'transporte', name: 'Transporte', icon: '🚗' },
+  { id: 'entretenimiento', name: 'Entretenimiento', icon: '🎮' },
+  { id: 'salud', name: 'Salud', icon: '🏥' },
+  { id: 'ropa', name: 'Ropa', icon: '👗' },
+  { id: 'servicios', name: 'Servicios', icon: '⚡' },
+  { id: 'educacion', name: 'Educación', icon: '📚' },
+  { id: 'viajes', name: 'Viajes', icon: '✈️' },
+  { id: 'hogar', name: 'Hogar', icon: '🏠' },
+  { id: 'tecnologia', name: 'Tecnología', icon: '📱' },
+  { id: 'otros-gasto', name: 'Otros', icon: '📦' },
+];
+
+export const DEFAULT_INCOME_CATS = [
+  { id: 'salario', name: 'Salario', icon: '💼' },
+  { id: 'freelance', name: 'Freelance', icon: '💻' },
+  { id: 'inversion', name: 'Inversión', icon: '📈' },
+  { id: 'negocio', name: 'Negocio', icon: '🏢' },
+  { id: 'regalo', name: 'Regalo', icon: '🎁' },
+  { id: 'reembolso', name: 'Reembolso', icon: '↩️' },
+  { id: 'otros-ingreso', name: 'Otros', icon: '📦' },
+];
+
 export const DEFAULT_SHORTCUTS = [
-  { label: 'Gasto', icon: '💸', type: 'expense' as const, category: 'Otros' },
-  { label: 'Ingreso', icon: '💰', type: 'income' as const, category: 'Otros' },
   { label: 'Comida', icon: '🍔', type: 'expense' as const, category: 'Comida' },
   { label: 'Transporte', icon: '🚗', type: 'expense' as const, category: 'Transporte' },
+  { label: 'Salario', icon: '💼', type: 'income' as const, category: 'Salario' },
+  { label: 'Servicios', icon: '⚡', type: 'expense' as const, category: 'Servicios' },
+  { label: 'Freelance', icon: '💻', type: 'income' as const, category: 'Freelance' },
+  { label: 'Otros', icon: '📦', type: 'expense' as const, category: 'Otros' },
 ];
+
+/** Returns the next calendar date for a given day-of-month */
+export function nextDateForDay(day: number): Date {
+  const now = new Date();
+  const thisMonth = new Date(now.getFullYear(), now.getMonth(), day);
+  if (thisMonth.getTime() > now.getTime()) return thisMonth;
+  return new Date(now.getFullYear(), now.getMonth() + 1, day);
+}
+
+/** Days remaining until the next occurrence of a day-of-month */
+export function daysUntil(day: number): number {
+  const next = nextDateForDay(day);
+  const diff = next.getTime() - Date.now();
+  return Math.ceil(diff / 86_400_000);
+}
+
+// Build balance timeline from movements (for charts/sparklines)
+export function buildBalanceHistory(
+  currentBalance: number,
+  movements: { date: number; type: string; amount: number }[],
+): { date: number; balance: number }[] {
+  const sorted = [...movements].sort((a, b) => a.date - b.date);
+  if (sorted.length === 0) {
+    const now = Date.now();
+    return [
+      { date: now - 30 * 86_400_000, balance: currentBalance },
+      { date: now, balance: currentBalance },
+    ];
+  }
+  // Compute what balance was before the first movement
+  const totalNet = sorted.reduce(
+    (s, m) => (m.type === 'income' ? s + m.amount : s - m.amount), 0
+  );
+  let bal = currentBalance - totalNet;
+  const points: { date: number; balance: number }[] = [
+    { date: sorted[0].date - 1000, balance: bal },
+  ];
+  for (const m of sorted) {
+    bal = m.type === 'income' ? bal + m.amount : bal - m.amount;
+    points.push({ date: m.date, balance: bal });
+  }
+  return points;
+}

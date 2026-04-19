@@ -1,24 +1,30 @@
 {
-  "name": "Leyva - Gestor de Gastos",
-  "short_name": "Leyva",
-  "description": "Tu gestor de gastos personal",
+  "name": "KashNubix",
+  "short_name": "KashNubix",
+  "description": "Tu gestor financiero personal",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F2F2F7",
+  "background_color": "#0C0C0E",
   "theme_color": "#007AFF",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/logo.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/logo.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": ["finance", "productivity"]

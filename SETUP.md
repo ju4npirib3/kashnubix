@@ -1,9 +1,9 @@
-# Leyva — Guía de configuración
+# KashNubix — Guía de configuración
 
 ## 1. Instalar dependencias
 
 ```bash
-cd leyva
+cd kashnubix
 npm install
 ```
 
@@ -11,7 +11,7 @@ npm install
 
 ### Crear proyecto
 1. Ve a [console.firebase.google.com](https://console.firebase.google.com)
-2. Crea un nuevo proyecto llamado `leyva`
+2. Crea un nuevo proyecto llamado `kashnubix`
 3. Activa **Google Analytics** (opcional)
 
 ### Habilitar autenticación
@@ -40,7 +40,7 @@ service cloud.firestore {
 ### Obtener credenciales
 1. **Project Settings** (ícono de engranaje) → **General**
 2. Desplázate hasta **Your apps** → clic en **</>** (web)
-3. Registra la app con el nombre `leyva-web`
+3. Registra la app con el nombre `kashnubix-web`
 4. Copia la configuración `firebaseConfig`
 
 ### Crear archivo de entorno
@@ -70,14 +70,14 @@ O conecta tu repositorio GitHub en [vercel.com](https://vercel.com):
 
 ### Dominio personalizado
 1. En Vercel → **Settings** → **Domains**
-2. Agrega tu dominio (ej: `gastos.tudominio.com`)
+2. Agrega tu dominio (ej: `kashnubix.tudominio.com`)
 3. Configura los DNS según las instrucciones de Vercel
 4. En Firebase → **Authentication** → **Authorized domains** → agrega tu dominio
 
 ## Estructura de carpetas
 
 ```
-leyva/
+kashnubix/
 ├── app/               # Páginas (Next.js App Router)
 │   ├── login/         # Pantalla de inicio de sesión
 │   ├── home/          # Dashboard principal

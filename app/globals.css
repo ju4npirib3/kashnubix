@@ -11,6 +11,12 @@
   * {
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
   }
 
   html, body {
@@ -43,3 +49,8 @@
 /* Swipe carousel snap */
 .snap-x { scroll-snap-type: x mandatory; }
 .snap-start { scroll-snap-align: start; }
+
+/* Prevent background scroll when a bottom sheet is open */
+body.scroll-locked {
+  overflow: hidden;
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import BottomNav from '@/components/BottomNav';
 import Header from '@/components/Header';
@@ -17,15 +17,36 @@ import type { MovementType } from '@/types';
 export default function HomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [showAddMovement, setShowAddMovement] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [defaultType, setDefaultType] = useState<MovementType>('expense');
   const [defaultCategory, setDefaultCategory] = useState<string | undefined>();
+  const [defaultAmount, setDefaultAmount] = useState<string | undefined>();
+  const [defaultDescription, setDefaultDescription] = useState<string | undefined>();
+  const [defaultAccountId, setDefaultAccountId] = useState<string | undefined>();
+  const [defaultEstablishment, setDefaultEstablishment] = useState<string | undefined>();
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
   }, [user, loading, router]);
+
+  // Handle "copy movement" redirect — open modal with pre-filled data
+  useEffect(() => {
+    if (searchParams.get('copy') === '1') {
+      setDefaultType((searchParams.get('type') as MovementType) ?? 'expense');
+      setDefaultCategory(searchParams.get('category') ?? undefined);
+      setDefaultAmount(searchParams.get('amount') ?? undefined);
+      setDefaultDescription(searchParams.get('description') ?? undefined);
+      setDefaultAccountId(searchParams.get('accountId') ?? undefined);
+      setDefaultEstablishment(searchParams.get('establishment') ?? undefined);
+      setShowAddMovement(true);
+      // Clean URL without reloading
+      router.replace('/home', { scroll: false });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   if (loading || !user) {
     return (
@@ -38,12 +59,20 @@ export default function HomePage() {
   function handleShortcut(type: MovementType, category: string) {
     setDefaultType(type);
     setDefaultCategory(category);
+    setDefaultAmount(undefined);
+    setDefaultDescription(undefined);
+    setDefaultAccountId(undefined);
+    setDefaultEstablishment(undefined);
     setShowAddMovement(true);
   }
 
   function handleAddClick() {
     setDefaultType('expense');
     setDefaultCategory(undefined);
+    setDefaultAmount(undefined);
+    setDefaultDescription(undefined);
+    setDefaultAccountId(undefined);
+    setDefaultEstablishment(undefined);
     setShowAddMovement(true);
   }
 
@@ -65,6 +94,10 @@ export default function HomePage() {
         onClose={() => setShowAddMovement(false)}
         defaultType={defaultType}
         defaultCategory={defaultCategory}
+        defaultAmount={defaultAmount}
+        defaultDescription={defaultDescription}
+        defaultAccountId={defaultAccountId}
+        defaultEstablishment={defaultEstablishment}
       />
       <AddAccountModal
         open={showAddAccount}

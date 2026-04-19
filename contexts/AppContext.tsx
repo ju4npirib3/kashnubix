@@ -4,15 +4,18 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode 
 import { useAuth } from './AuthContext';
 import {
   subscribeAccounts, subscribeMovements, subscribeShortcuts,
-  addAccount, updateAccount, deleteAccount, addMovement, saveShortcuts,
+  addAccount, updateAccount, deleteAccount, addMovement, deleteMovement, saveShortcuts,
+  subscribeCategories, saveCategory, saveAllCategories, migrateAllAccountsToCurrency,
 } from '@/lib/firestore';
-import { DEFAULT_SHORTCUTS, calcPercentChange } from '@/lib/utils';
-import type { Account, Movement, Shortcut } from '@/types';
+import { DEFAULT_SHORTCUTS, DEFAULT_EXPENSE_CATS, DEFAULT_INCOME_CATS, calcPercentChange } from '@/lib/utils';
+import type { Account, Movement, Shortcut, CustomCategory } from '@/types';
 
 interface AppContextValue {
   accounts: Account[];
   movements: Movement[];
   shortcuts: Shortcut[];
+  expenseCategories: CustomCategory[];
+  incomeCategories: CustomCategory[];
   totalBalance: number;
   balanceChange: number;
   last24hIncome: number;
@@ -23,7 +26,10 @@ interface AppContextValue {
   updateAccountFn: (id: string, data: Partial<Account>) => Promise<void>;
   deleteAccountFn: (id: string) => Promise<void>;
   addMovementFn: (data: Omit<Movement, 'id'>) => Promise<void>;
+  deleteMovementFn: (id: string, accountId: string, type: string, amount: number) => Promise<void>;
   updateShortcutsFn: (shortcuts: Omit<Shortcut, 'id'>[]) => Promise<void>;
+  saveCategoryFn: (cat: CustomCategory) => Promise<void>;
+  saveAllCategoriesFn: (cats: CustomCategory[]) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -33,16 +39,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [shortcuts, setShortcuts] = useState<Shortcut[]>([]);
+  const [customCats, setCustomCats] = useState<CustomCategory[]>([]);
 
   useEffect(() => {
-    if (!user) { setAccounts([]); setMovements([]); setShortcuts([]); return; }
-    const unsub1 = subscribeAccounts(user.uid, setAccounts);
+    if (!user) { setAccounts([]); setMovements([]); setShortcuts([]); setCustomCats([]); return; }
+
+    // One-shot migration: write MXN to Firestore for any non-MXN account
+    migrateAllAccountsToCurrency(user.uid, 'MXN').catch(() => {});
+
+    const unsub1 = subscribeAccounts(user.uid, (loaded) => {
+      // Always display MXN regardless of what Firestore returns during migration
+      setAccounts(loaded.map(a => ({ ...a, currency: 'MXN' })));
+    });
     const unsub2 = subscribeMovements(user.uid, setMovements);
     const unsub3 = subscribeShortcuts(user.uid, (s) => {
       setShortcuts(s.length > 0 ? s : DEFAULT_SHORTCUTS.map((d, i) => ({ ...d, id: String(i) })));
     });
-    return () => { unsub1(); unsub2(); unsub3(); };
+    const unsub4 = subscribeCategories(user.uid, setCustomCats);
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
   }, [user]);
+
+  // Merge Firestore custom categories with defaults (Firestore wins on conflict by id)
+  const expenseCategories: CustomCategory[] = (() => {
+    if (customCats.filter(c => c.type === 'expense').length === 0) {
+      return DEFAULT_EXPENSE_CATS.map(c => ({ ...c, type: 'expense' as const }));
+    }
+    return customCats.filter(c => c.type === 'expense');
+  })();
+
+  const incomeCategories: CustomCategory[] = (() => {
+    if (customCats.filter(c => c.type === 'income').length === 0) {
+      return DEFAULT_INCOME_CATS.map(c => ({ ...c, type: 'income' as const }));
+    }
+    return customCats.filter(c => c.type === 'income');
+  })();
 
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0);
   const prevTotalBalance = accounts.reduce((s, a) => s + a.previousBalance, 0);
@@ -82,9 +112,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const account = accounts.find(a => a.id === data.accountId);
     if (!account) return;
     const prevBalance = account.balance;
-    const newBalance = data.type === 'income'
-      ? prevBalance + data.amount
-      : prevBalance - data.amount;
+    // Credit cards: expenses ADD to debt, payments REDUCE debt
+    const isCredit = account.type === 'credit';
+    const newBalance = isCredit
+      ? (data.type === 'expense'
+          ? prevBalance + data.amount
+          : Math.max(0, prevBalance - data.amount))
+      : (data.type === 'income'
+          ? prevBalance + data.amount
+          : prevBalance - data.amount);
     await addMovement(user.uid, data);
     await updateAccount(user.uid, data.accountId, {
       previousBalance: prevBalance,
@@ -92,19 +128,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [user, accounts]);
 
+  const deleteMovementFn = useCallback(async (id: string, accountId: string, type: string, amount: number) => {
+    if (!user) return;
+    const account = accounts.find(a => a.id === accountId);
+    await deleteMovement(user.uid, id);
+    if (account) {
+      const isCredit = account.type === 'credit';
+      // Reverse of add: credit expense was added, so subtract; credit income was subtracted, so add
+      const newBalance = isCredit
+        ? (type === 'expense'
+            ? Math.max(0, account.balance - amount)
+            : account.balance + amount)
+        : (type === 'income'
+            ? account.balance - amount
+            : account.balance + amount);
+      await updateAccount(user.uid, accountId, {
+        previousBalance: account.balance,
+        balance: newBalance,
+      });
+    }
+  }, [user, accounts]);
+
   const updateShortcutsFn = useCallback(async (data: Omit<Shortcut, 'id'>[]) => {
     if (!user) return;
     await saveShortcuts(user.uid, data);
   }, [user]);
 
+  const saveCategoryFn = useCallback(async (cat: CustomCategory) => {
+    if (!user) return;
+    // If we're saving the first custom category, seed all defaults first
+    const allCats = customCats.length === 0
+      ? [
+          ...DEFAULT_EXPENSE_CATS.map(c => ({ ...c, type: 'expense' as const })),
+          ...DEFAULT_INCOME_CATS.map(c => ({ ...c, type: 'income' as const })),
+        ]
+      : customCats;
+    const merged = allCats.map(c => c.id === cat.id ? cat : c);
+    const hasNew = !merged.some(c => c.id === cat.id);
+    await saveAllCategories(user.uid, hasNew ? [...merged, cat] : merged);
+  }, [user, customCats]);
+
+  const saveAllCategoriesFn = useCallback(async (cats: CustomCategory[]) => {
+    if (!user) return;
+    await saveAllCategories(user.uid, cats);
+  }, [user]);
+
   return (
     <AppContext.Provider value={{
       accounts, movements, shortcuts,
+      expenseCategories, incomeCategories,
       totalBalance, balanceChange,
       last24hIncome, last24hIncomeChange,
       last24hExpense, last24hExpenseChange,
       addAccountFn, updateAccountFn, deleteAccountFn,
-      addMovementFn, updateShortcutsFn,
+      addMovementFn, deleteMovementFn, updateShortcutsFn,
+      saveCategoryFn, saveAllCategoriesFn,
     }}>
       {children}
     </AppContext.Provider>

@@ -17,7 +17,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
-    const saved = (localStorage.getItem('leyva-theme') as Theme) ?? 'system';
+    const saved = (localStorage.getItem('kashnubix-theme') as Theme) ?? 'system';
     setThemeState(saved);
   }, []);
 
@@ -38,7 +38,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   function setTheme(t: Theme) {
     setThemeState(t);
-    localStorage.setItem('leyva-theme', t);
+    localStorage.setItem('kashnubix-theme', t);
   }
 
   return (
