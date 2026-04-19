@@ -241,6 +241,29 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Force update */}
+      <div className="mx-5 mb-4">
+        <button
+          onClick={async () => {
+            if ('serviceWorker' in navigator) {
+              const regs = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(regs.map(r => r.unregister()));
+            }
+            if ('caches' in window) {
+              const keys = await caches.keys();
+              await Promise.all(keys.map(k => caches.delete(k)));
+            }
+            window.location.reload();
+          }}
+          className="w-full card p-4 flex items-center gap-3 shadow-sm active:opacity-80 transition-opacity"
+        >
+          <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center">
+            <span className="text-lg">🔄</span>
+          </div>
+          <span className="font-bold text-accent">Forzar actualización</span>
+        </button>
+      </div>
+
       {/* Logout */}
       <div className="mx-5 mb-4">
         <button
@@ -254,7 +277,7 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      <p className="text-center text-xs text-neutral-400 dark:text-neutral-600 mt-6 pb-2">KashNubix v1.0.0</p>
+      <p className="text-center text-xs text-neutral-400 dark:text-neutral-600 mt-6 pb-2">KashNubix v1.1.0</p>
 
       <BottomNav onAddClick={() => setShowAdd(true)} />
       <AddMovementModal open={showAdd} onClose={() => setShowAdd(false)} />
