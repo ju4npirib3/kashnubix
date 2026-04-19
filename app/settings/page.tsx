@@ -241,7 +241,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Force update */}
+      {/* Update app */}
       <div className="mx-5 mb-4">
         <button
           onClick={async () => {
@@ -260,7 +260,7 @@ export default function SettingsPage() {
           <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center">
             <span className="text-lg">🔄</span>
           </div>
-          <span className="font-bold text-accent">Forzar actualización</span>
+          <span className="font-bold text-accent">Actualizar app</span>
         </button>
       </div>
 
