@@ -405,6 +405,13 @@ export default function AddMovementModal({
                     </div>
                   </div>
 
+                  {/* DEBUG — remove later */}
+                  {type === 'expense' && (
+                    <p className="text-[10px] text-neutral-400 mb-2 px-1">
+                      cuenta: {accounts.find(a => a.id === effectiveAccountId)?.name} · tipo: {accounts.find(a => a.id === effectiveAccountId)?.type}
+                    </p>
+                  )}
+
                   {/* MSI toggle — only when selected account is a credit card */}
                   {type === 'expense' && accounts.find(a => a.id === effectiveAccountId)?.type === 'credit' && (
                     <div className="mb-4">
