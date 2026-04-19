@@ -15,6 +15,18 @@ const nextConfig = {
       },
     ];
   },
+  // Never cache the service worker — ensures browsers always get the latest version
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Pragma', value: 'no-cache' },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

@@ -10,8 +10,12 @@ export default function SwRegister() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
 
-    navigator.serviceWorker.register('/sw.js').then(registration => {
+    // Force the browser to check for a new SW immediately on every page load
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(registration => {
       setReg(registration);
+
+      // Immediately check for updates (bypasses HTTP cache)
+      registration.update().catch(() => {});
 
       // New SW found while page is open
       registration.addEventListener('updatefound', () => {
@@ -19,7 +23,6 @@ export default function SwRegister() {
         if (!newSW) return;
         newSW.addEventListener('statechange', () => {
           if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-            // There's a new version waiting — notify user
             setNeedRefresh(true);
           }
         });
@@ -31,7 +34,7 @@ export default function SwRegister() {
       }
     });
 
-    // When the new SW takes control, reload the page to apply the update
+    // When the new SW takes control, reload to apply the update
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!refreshing) {
@@ -41,9 +44,16 @@ export default function SwRegister() {
     });
   }, []);
 
-  function handleUpdate() {
+  async function handleUpdate() {
+    // Clear all caches first, then tell the waiting SW to take over
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
     if (reg?.waiting) {
       reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    } else {
+      window.location.reload();
     }
     setNeedRefresh(false);
   }
