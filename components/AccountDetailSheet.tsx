@@ -92,6 +92,18 @@ export default function AccountDetailSheet({ account, onClose, onDelete }: Props
   })();
 
   // Credit card computed values
+  const accountMsiPlans = msiPlans.filter(p => p.accountId === account.id);
+  // effectiveBalance = what to pay this cycle (total debt minus deferred MSI installments)
+  const effectiveBalance = (() => {
+    if (!isCredit || accountMsiPlans.length === 0) return account.balance;
+    const totalDeferred = accountMsiPlans.reduce((sum, plan) => {
+      const paid = calcPaidMonths(plan.startDate, account.cutoffDay, plan.months);
+      const remaining = Math.max(0, plan.months - paid);
+      const deferred = Math.max(0, remaining - 1) * plan.monthlyPayment;
+      return sum + deferred;
+    }, 0);
+    return Math.max(0, account.balance - totalDeferred);
+  })();
   const available = isCredit && account.creditLimit != null
     ? Math.max(0, account.creditLimit - account.balance)
     : null;
@@ -201,11 +213,19 @@ export default function AccountDetailSheet({ account, onClose, onDelete }: Props
 
                 {isCredit ? (
                   <>
-                    <p className="text-white/70 text-xs font-semibold mt-1">Deuda actual</p>
+                    <p className="text-white/70 text-xs font-semibold mt-1">
+                      {accountMsiPlans.length > 0 ? 'A pagar este ciclo' : 'Deuda actual'}
+                    </p>
                     <p className="text-white font-black leading-none mt-1"
                       style={{ fontSize: 30, fontVariantNumeric: 'tabular-nums' }}>
-                      {formatCurrency(account.balance, account.currency)}
+                      {formatCurrency(effectiveBalance, account.currency)}
                     </p>
+                    {/* Show total debt separately when there are MSI plans */}
+                    {accountMsiPlans.length > 0 && effectiveBalance !== account.balance && (
+                      <p className="text-white/60 text-xs mt-1">
+                        Total adeudado: {formatCurrency(account.balance, account.currency)}
+                      </p>
+                    )}
 
                     {/* Usage bar */}
                     {account.creditLimit && (
@@ -310,15 +330,15 @@ export default function AccountDetailSheet({ account, onClose, onDelete }: Props
               })()}
 
               {/* Pay card button */}
-              {isCredit && account.balance > 0 && (
+              {isCredit && effectiveBalance > 0 && (
                 <div className="mx-4 mt-3">
                   {!showPayInput ? (
                     <button
-                      onClick={() => { setPayAmount(String(account.balance)); setShowPayInput(true); }}
+                      onClick={() => { setPayAmount(String(effectiveBalance)); setShowPayInput(true); }}
                       className="w-full py-3.5 bg-income text-white font-bold rounded-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
                     >
                       <CheckCircle className="w-5 h-5" />
-                      Pagar tarjeta — {formatCurrency(account.balance, account.currency)}
+                      Pagar tarjeta — {formatCurrency(effectiveBalance, account.currency)}
                     </button>
                   ) : (
                     <div className="bg-income/10 dark:bg-income/15 rounded-2xl p-4">
