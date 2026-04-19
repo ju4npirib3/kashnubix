@@ -16,7 +16,7 @@ interface Props {
 }
 
 export default function MovementDetailSheet({ movement, onClose }: Props) {
-  const { accounts, deleteMovementFn } = useApp();
+  const { accounts, msiPlans, deleteMovementFn, deleteMsiPlanFn } = useApp();
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -38,7 +38,13 @@ export default function MovementDetailSheet({ movement, onClose }: Props) {
   async function handleDelete() {
     if (!confirmDelete) { setConfirmDelete(true); return; }
     setDeleting(true);
-    await deleteMovementFn(movement!.id, movement!.accountId, movement!.type, movement!.amount);
+    // If this movement belongs to an MSI plan, delete the whole plan (not just the movement)
+    const linkedPlan = msiPlans.find(p => p.movementId === movement!.id);
+    if (linkedPlan) {
+      await deleteMsiPlanFn(linkedPlan.id, movement!.id, movement!.accountId, movement!.amount);
+    } else {
+      await deleteMovementFn(movement!.id, movement!.accountId, movement!.type, movement!.amount);
+    }
     setDeleting(false);
     onClose();
   }

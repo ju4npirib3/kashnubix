@@ -16,7 +16,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   AreaChart, Area, ResponsiveContainer, Tooltip,
 } from 'recharts';
-import type { Account } from '@/types';
 
 export default function AccountsPage() {
   const { user, loading } = useAuth();
@@ -24,7 +23,9 @@ export default function AccountsPage() {
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  // Always derive live account from context so balance updates reflect instantly
+  const selectedAccount = selectedAccountId ? (accounts.find(a => a.id === selectedAccountId) ?? null) : null;
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -83,7 +84,7 @@ export default function AccountsPage() {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  onClick={() => setSelectedAccount(account)}
+                  onClick={() => setSelectedAccountId(account.id)}
                   className="w-full card overflow-hidden shadow-sm active:scale-[0.99] transition-transform text-left"
                 >
                   {/* Card header */}
@@ -176,8 +177,8 @@ export default function AccountsPage() {
       {/* Account detail sheet */}
       <AccountDetailSheet
         account={selectedAccount}
-        onClose={() => setSelectedAccount(null)}
-        onDelete={async (id) => { await deleteAccountFn(id); setSelectedAccount(null); }}
+        onClose={() => setSelectedAccountId(null)}
+        onDelete={async (id) => { await deleteAccountFn(id); setSelectedAccountId(null); }}
       />
 
       <BottomNav onAddClick={() => setShowAdd(true)} />

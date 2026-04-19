@@ -14,7 +14,9 @@ interface Props { onAddAccount: () => void; }
 
 export default function AccountsCarousel({ onAddAccount }: Props) {
   const { accounts, movements, deleteAccountFn } = useApp();
-  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  // Always derive the live account object from context so balance updates reflect instantly
+  const selectedAccount = selectedAccountId ? (accounts.find(a => a.id === selectedAccountId) ?? null) : null;
 
   return (
     <motion.div
@@ -34,7 +36,7 @@ export default function AccountsCarousel({ onAddAccount }: Props) {
             key={account.id}
             account={account}
             movements={movements.filter(m => m.accountId === account.id)}
-            onClick={() => setSelectedAccount(account)}
+            onClick={() => setSelectedAccountId(account.id)}
           />
         ))}
         <AddAccountCard onClick={onAddAccount} />
@@ -42,8 +44,8 @@ export default function AccountsCarousel({ onAddAccount }: Props) {
 
       <AccountDetailSheet
         account={selectedAccount}
-        onClose={() => setSelectedAccount(null)}
-        onDelete={async (id) => { await deleteAccountFn(id); setSelectedAccount(null); }}
+        onClose={() => setSelectedAccountId(null)}
+        onDelete={async (id) => { await deleteAccountFn(id); setSelectedAccountId(null); }}
       />
     </motion.div>
   );
