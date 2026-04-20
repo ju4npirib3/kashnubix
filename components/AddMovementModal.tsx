@@ -53,7 +53,7 @@ export default function AddMovementModal({
   defaultEstablishment,
 }: Props) {
   const { user } = useAuth();
-  const { accounts, movements, addMovementFn, addMsiPlanFn, expenseCategories, incomeCategories } = useApp();
+  const { accounts, movements, addMovementFn, addMsiPlanFn, addTransferFn, expenseCategories, incomeCategories } = useApp();
 
   const [type, setType] = useState<MovementType>(defaultType);
   const [amount, setAmount] = useState('');
@@ -62,6 +62,7 @@ export default function AddMovementModal({
   const [accountId, setAccountId] = useState('');
   const [establishment, setEstablishment] = useState('');
   const [selectedDate, setSelectedDate] = useState(todayString);
+  const [toAccountId, setToAccountId] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [isMsi, setIsMsi] = useState(false);
@@ -130,6 +131,7 @@ export default function AddMovementModal({
     setCategory('');
     setType(defaultType);
     setAccountId(accounts[0]?.id ?? '');
+    setToAccountId('');
     setEstablishment('');
     setSelectedDate(todayString());
     setVoiceError('');
@@ -202,35 +204,48 @@ export default function AddMovementModal({
 
   // ── Submit ───────────────────────────────────────────────────────────────────
   const effectiveAccountId = accountId || accounts[0]?.id || '';
+  const effectiveToAccountId = toAccountId || accounts.find(a => a.id !== effectiveAccountId)?.id || '';
   const parsedAmount = parseFloat(amount);
-  const canSubmit = parsedAmount > 0 && !!category && !!effectiveAccountId && !saving;
+
+  const isTransfer = type === 'transfer';
+  const canSubmit = isTransfer
+    ? parsedAmount > 0 && !!effectiveAccountId && !!effectiveToAccountId && effectiveAccountId !== effectiveToAccountId && !saving
+    : parsedAmount > 0 && !!category && !!effectiveAccountId && !saving;
 
   async function handleSubmit() {
     if (!canSubmit || !user) return;
-    // Dismiss keyboard and close any open dropdowns before saving
     (document.activeElement as HTMLElement)?.blur();
     setShowSuggestions(false);
-    const account = accounts.find(a => a.id === effectiveAccountId);
-    if (!account) return;
     setSaving(true);
     setSaveError('');
     try {
-      const movData: Parameters<typeof addMovementFn>[0] = {
-        accountId: effectiveAccountId,
-        accountName: account.name,
-        type,
-        amount: parsedAmount,
-        category,
-        description: description.trim() || category,
-        date: dateStringToTs(selectedDate),
-        createdAt: Date.now(),
-      };
-      if (establishment.trim()) movData.establishment = establishment.trim();
-
-      if (isMsi && type === 'expense' && account.type === 'credit') {
-        await addMsiPlanFn(movData, msiMonths);
+      if (isTransfer) {
+        await addTransferFn(
+          effectiveAccountId,
+          effectiveToAccountId,
+          parsedAmount,
+          description,
+          dateStringToTs(selectedDate),
+        );
       } else {
-        await addMovementFn(movData);
+        const account = accounts.find(a => a.id === effectiveAccountId);
+        if (!account) return;
+        const movData: Parameters<typeof addMovementFn>[0] = {
+          accountId: effectiveAccountId,
+          accountName: account.name,
+          type,
+          amount: parsedAmount,
+          category,
+          description: description.trim() || category,
+          date: dateStringToTs(selectedDate),
+          createdAt: Date.now(),
+        };
+        if (establishment.trim()) movData.establishment = establishment.trim();
+        if (isMsi && type === 'expense' && account.type === 'credit') {
+          await addMsiPlanFn(movData, msiMonths);
+        } else {
+          await addMovementFn(movData);
+        }
       }
       resetAndClose();
     } catch {
@@ -307,21 +322,72 @@ export default function AddMovementModal({
                 <>
                   {/* Type toggle */}
                   <div className="flex bg-neutral-100 dark:bg-neutral-800 rounded-2xl p-1 mb-4">
-                    {(['income', 'expense'] as const).map(t => (
+                    {([
+                      { value: 'income',   label: '↑ Ingreso' },
+                      { value: 'expense',  label: '↓ Gasto' },
+                      { value: 'transfer', label: '↔ Traspaso' },
+                    ] as const).map(t => (
                       <button
-                        key={t}
-                        onClick={() => { setType(t); setCategory(''); }}
+                        key={t.value}
+                        onClick={() => { setType(t.value); setCategory(''); }}
                         className={cn(
-                          'flex-1 py-2.5 rounded-xl text-sm font-bold transition-all',
-                          type === t
-                            ? t === 'income' ? 'bg-income text-white shadow-sm' : 'bg-expense text-white shadow-sm'
+                          'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all',
+                          type === t.value
+                            ? t.value === 'income'   ? 'bg-income text-white shadow-sm'
+                            : t.value === 'expense'  ? 'bg-expense text-white shadow-sm'
+                            : 'bg-neutral-500 text-white shadow-sm'
                             : 'text-neutral-500 dark:text-neutral-400'
                         )}
                       >
-                        {t === 'income' ? '↑ Ingreso' : '↓ Gasto'}
+                        {t.label}
                       </button>
                     ))}
                   </div>
+
+                  {/* Transfer: account selectors */}
+                  {isTransfer && (
+                    <div className="mb-4 space-y-3">
+                      <div>
+                        <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-1 block">
+                          Cuenta origen
+                        </label>
+                        <div className="relative">
+                          <select
+                            value={effectiveAccountId}
+                            onChange={e => setAccountId(e.target.value)}
+                            className="w-full appearance-none pl-4 pr-10 py-3.5 bg-neutral-100 dark:bg-neutral-800 rounded-2xl font-semibold dark:text-white outline-none focus:ring-2 focus:ring-accent/30"
+                          >
+                            {accounts.map(a => (
+                              <option key={a.id} value={a.id}>
+                                {a.name} — {formatCurrency(a.balance, a.currency)}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+                        </div>
+                      </div>
+                      <div className="flex justify-center text-2xl select-none">↓</div>
+                      <div>
+                        <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-1 block">
+                          Cuenta destino
+                        </label>
+                        <div className="relative">
+                          <select
+                            value={effectiveToAccountId}
+                            onChange={e => setToAccountId(e.target.value)}
+                            className="w-full appearance-none pl-4 pr-10 py-3.5 bg-neutral-100 dark:bg-neutral-800 rounded-2xl font-semibold dark:text-white outline-none focus:ring-2 focus:ring-accent/30"
+                          >
+                            {accounts.filter(a => a.id !== effectiveAccountId).map(a => (
+                              <option key={a.id} value={a.id}>
+                                {a.name} — {formatCurrency(a.balance, a.currency)}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Amount + voice */}
                   <div className="mb-4">
@@ -364,7 +430,8 @@ export default function AddMovementModal({
                     )}
                   </div>
 
-                  {/* Category */}
+                  {/* Category (hidden for transfers) */}
+                  {!isTransfer && (
                   <div className="mb-4">
                     <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2 block">
                       Categoría
@@ -392,8 +459,10 @@ export default function AddMovementModal({
                       })}
                     </div>
                   </div>
+                  )}
 
-                  {/* Account */}
+                  {/* Account (hidden for transfers — they have their own selectors above) */}
+                  {!isTransfer && (
                   <div className="mb-4">
                     <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-1 block">
                       Cuenta
@@ -413,9 +482,10 @@ export default function AddMovementModal({
                       <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
                     </div>
                   </div>
+                  )}
 
                   {/* MSI toggle — only when selected account is a credit card */}
-                  {type === 'expense' && accounts.find(a => a.id === effectiveAccountId)?.type === 'credit' && (
+                  {!isTransfer && type === 'expense' && accounts.find(a => a.id === effectiveAccountId)?.type === 'credit' && (
                     <div className="mb-4">
                       <button
                         onClick={() => setIsMsi(v => !v)}
@@ -469,8 +539,8 @@ export default function AddMovementModal({
                     </div>
                   )}
 
-                  {/* Establishment */}
-                  <div className="mb-4 relative">
+                  {/* Establishment (hidden for transfers) */}
+                  {!isTransfer && <div className="mb-4 relative">
                     <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-1 block">
                       Establecimiento (opcional)
                     </label>
@@ -507,7 +577,7 @@ export default function AddMovementModal({
                         ))}
                       </div>
                     )}
-                  </div>
+                  </div>}
 
                   {/* Description */}
                   <div className="mb-4">

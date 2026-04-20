@@ -32,6 +32,7 @@ interface AppContextValue {
   updateMovementFn: (old: Movement, updates: Partial<Omit<Movement, 'id'>>) => Promise<void>;
   reorderAccountsFn: (ids: string[]) => Promise<void>;
   deleteMovementFn: (id: string, accountId: string, type: string, amount: number) => Promise<void>;
+  addTransferFn: (fromAccountId: string, toAccountId: string, amount: number, description: string, date: number) => Promise<void>;
   updateShortcutsFn: (shortcuts: Omit<Shortcut, 'id'>[]) => Promise<void>;
   saveCategoryFn: (cat: CustomCategory) => Promise<void>;
   saveAllCategoriesFn: (cats: CustomCategory[]) => Promise<void>;
@@ -177,22 +178,120 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteMovementFn = useCallback(async (id: string, accountId: string, type: string, amount: number) => {
     if (!user) return;
     const account = accounts.find(a => a.id === accountId);
+    const movToDelete = movements.find(m => m.id === id);
+
+    // If this is a transfer leg, also delete & reverse the paired leg
+    if (movToDelete?.transferPairId) {
+      const paired = movements.find(m => m.transferPairId === movToDelete.transferPairId && m.id !== id);
+      if (paired) {
+        const pairedAccount = accounts.find(a => a.id === paired.accountId);
+        await deleteMovement(user.uid, paired.id);
+        if (pairedAccount) {
+          const pairedIsCredit = pairedAccount.type === 'credit';
+          // Reverse the "in" effect: non-credit was increased → decrease; credit was decreased → increase
+          const newPairedBalance = pairedIsCredit
+            ? pairedAccount.balance + paired.amount
+            : pairedAccount.balance - paired.amount;
+          await updateAccount(user.uid, paired.accountId, {
+            previousBalance: pairedAccount.balance,
+            balance: Math.max(0, newPairedBalance),
+          });
+        }
+      }
+    }
+
     await deleteMovement(user.uid, id);
     if (account) {
       const isCredit = account.type === 'credit';
-      // Reverse of add: credit expense was added, so subtract; credit income was subtracted, so add
-      const newBalance = isCredit
-        ? (type === 'expense'
-            ? Math.max(0, account.balance - amount)
-            : account.balance + amount)
-        : (type === 'income'
-            ? account.balance - amount
-            : account.balance + amount);
+      let newBalance: number;
+      if (movToDelete?.transferDirection === 'out') {
+        // Reverse "out": non-credit was decreased → increase back; credit was increased (cash advance) → decrease
+        newBalance = isCredit
+          ? Math.max(0, account.balance - amount)
+          : account.balance + amount;
+      } else if (movToDelete?.transferDirection === 'in') {
+        // Reverse "in": non-credit was increased → decrease back; credit was decreased → increase
+        newBalance = isCredit
+          ? account.balance + amount
+          : account.balance - amount;
+      } else {
+        // Regular movement: reverse original effect
+        newBalance = isCredit
+          ? (type === 'expense' ? Math.max(0, account.balance - amount) : account.balance + amount)
+          : (type === 'income' ? account.balance - amount : account.balance + amount);
+      }
       await updateAccount(user.uid, accountId, {
         previousBalance: account.balance,
         balance: newBalance,
       });
     }
+  }, [user, accounts, movements]);
+
+  const addTransferFn = useCallback(async (
+    fromAccountId: string,
+    toAccountId: string,
+    amount: number,
+    description: string,
+    date: number,
+  ) => {
+    if (!user) return;
+    const fromAccount = accounts.find(a => a.id === fromAccountId);
+    const toAccount = accounts.find(a => a.id === toAccountId);
+    if (!fromAccount || !toAccount) return;
+
+    const pairId = `tr_${Date.now()}`;
+    const now = Date.now();
+    const desc = description.trim() || `Traspaso ${fromAccount.name} → ${toAccount.name}`;
+
+    await addMovement(user.uid, {
+      accountId: fromAccountId,
+      accountName: fromAccount.name,
+      type: 'transfer',
+      amount,
+      category: 'Traspaso',
+      description: `${desc} (salida)`,
+      date,
+      createdAt: now,
+      transferPairId: pairId,
+      transferDirection: 'out',
+      transferLinkedAccountId: toAccountId,
+      transferLinkedAccountName: toAccount.name,
+    });
+
+    await addMovement(user.uid, {
+      accountId: toAccountId,
+      accountName: toAccount.name,
+      type: 'transfer',
+      amount,
+      category: 'Traspaso',
+      description: `${desc} (entrada)`,
+      date,
+      createdAt: now,
+      transferPairId: pairId,
+      transferDirection: 'in',
+      transferLinkedAccountId: fromAccountId,
+      transferLinkedAccountName: fromAccount.name,
+    });
+
+    // Source: non-credit loses balance; credit gains debt (cash advance)
+    const fromIsCredit = fromAccount.type === 'credit';
+    const newFromBalance = fromIsCredit
+      ? fromAccount.balance + amount
+      : fromAccount.balance - amount;
+    await updateAccount(user.uid, fromAccountId, {
+      previousBalance: fromAccount.balance,
+      balance: Math.max(0, newFromBalance),
+    });
+
+    // Destination: non-credit gains balance; credit reduces debt
+    const toIsCredit = toAccount.type === 'credit';
+    const newToBalance = toIsCredit
+      ? Math.max(0, toAccount.balance - amount)
+      : toAccount.balance + amount;
+    await updateAccount(user.uid, toAccountId, {
+      previousBalance: toAccount.balance,
+      balance: newToBalance,
+    });
   }, [user, accounts]);
 
   const updateShortcutsFn = useCallback(async (data: Omit<Shortcut, 'id'>[]) => {
@@ -266,7 +365,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       last24hIncome, last24hIncomeChange,
       last24hExpense, last24hExpenseChange,
       addAccountFn, updateAccountFn, deleteAccountFn,
-      addMovementFn, updateMovementFn, deleteMovementFn, updateShortcutsFn, reorderAccountsFn,
+      addMovementFn, updateMovementFn, deleteMovementFn, addTransferFn, updateShortcutsFn, reorderAccountsFn,
       saveCategoryFn, saveAllCategoriesFn,
       addMsiPlanFn, deleteMsiPlanFn,
     }}>

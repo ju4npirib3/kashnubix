@@ -61,6 +61,7 @@ export default function MovementDetailSheet({ movement, onClose }: Props) {
 
   const account = accounts.find(a => a.id === movement.accountId);
   const isIncome = movement.type === 'income';
+  const isTransfer = movement.type === 'transfer';
   const catColor = CATEGORY_COLORS[movement.category] ?? '#8E8E93';
   const categories = movement.type === 'income' ? incomeCategories : expenseCategories;
 
@@ -275,31 +276,52 @@ export default function MovementDetailSheet({ movement, onClose }: Props) {
                       <span className="text-4xl">{CATEGORY_ICONS[movement.category] ?? '📦'}</span>
                     </div>
                     <p
-                      className={`font-black text-4xl leading-none ${isIncome ? 'text-income' : 'text-expense'}`}
+                      className={`font-black text-4xl leading-none ${
+                        isTransfer ? 'text-neutral-600 dark:text-neutral-300'
+                        : isIncome ? 'text-income' : 'text-expense'
+                      }`}
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     >
-                      {isIncome ? '+' : '-'}{formatCurrency(movement.amount, account?.currency ?? 'MXN')}
+                      {isTransfer
+                        ? (movement.transferDirection === 'out' ? '-' : '+')
+                        : isIncome ? '+' : '-'
+                      }{formatCurrency(movement.amount, account?.currency ?? 'MXN')}
                     </p>
                     <p className="text-neutral-500 dark:text-neutral-400 font-medium mt-2">{movement.description}</p>
                   </div>
 
                   <div className="bg-neutral-50 dark:bg-neutral-800 rounded-2xl divide-y divide-neutral-200 dark:divide-neutral-700 mb-6">
-                    <InfoRow label="Tipo" value={isIncome ? '↑ Ingreso' : '↓ Gasto'} valueClass={isIncome ? 'text-income' : 'text-expense'} />
-                    <InfoRow label="Categoría" value={movement.category} />
+                    <InfoRow
+                      label="Tipo"
+                      value={isTransfer
+                        ? (movement.transferDirection === 'out' ? '↔ Traspaso (salida)' : '↔ Traspaso (entrada)')
+                        : isIncome ? '↑ Ingreso' : '↓ Gasto'
+                      }
+                      valueClass={isTransfer ? 'text-neutral-500' : isIncome ? 'text-income' : 'text-expense'}
+                    />
+                    {isTransfer && movement.transferLinkedAccountName && (
+                      <InfoRow
+                        label={movement.transferDirection === 'out' ? 'Hacia' : 'Desde'}
+                        value={movement.transferLinkedAccountName}
+                      />
+                    )}
+                    {!isTransfer && <InfoRow label="Categoría" value={movement.category} />}
                     {movement.establishment && <InfoRow label="Establecimiento" value={movement.establishment} />}
                     <InfoRow label="Cuenta" value={account ? `${account.name} (${account.currency})` : movement.accountName} />
                     <InfoRow label="Fecha" value={format(new Date(movement.date), "d 'de' MMMM yyyy", { locale: es })} />
                   </div>
 
                   <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={startEdit}
-                      className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-accent/10 dark:bg-accent/20 text-accent font-bold rounded-2xl active:scale-[0.98] transition-transform"
-                    >
-                      <Pencil className="w-4 h-4" />
-                      Editar
-                    </button>
+                    {!isTransfer && (
+                      <button
+                        type="button"
+                        onClick={startEdit}
+                        className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-accent/10 dark:bg-accent/20 text-accent font-bold rounded-2xl active:scale-[0.98] transition-transform"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Editar
+                      </button>
+                    )}
 
                     <button
                       type="button"

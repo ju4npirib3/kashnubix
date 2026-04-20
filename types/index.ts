@@ -36,10 +36,14 @@ export interface Movement {
   amount: number;
   category: string;
   description: string;
-  establishment?: string;   // Optional merchant / store name
+  establishment?: string;      // Optional merchant / store name
   date: number;
   createdAt: number;
-  msiPlanId?: string;       // links this movement to an MSI plan
+  msiPlanId?: string;          // links this movement to an MSI plan
+  transferPairId?: string;     // links both legs of a transfer
+  transferDirection?: 'out' | 'in';
+  transferLinkedAccountName?: string;  // name of the other account
+  transferLinkedAccountId?: string;
 }
 
 export interface MsiPlan {

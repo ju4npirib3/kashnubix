@@ -62,6 +62,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   Regalo: '🎁', Reembolso: '↩️', Comida: '🍔', Transporte: '🚗',
   Entretenimiento: '🎮', Salud: '🏥', Ropa: '👗', Servicios: '⚡',
   Educación: '📚', Viajes: '✈️', Hogar: '🏠', Tecnología: '📱', Otros: '📦',
+  Traspaso: '↔️',
 };
 
 // iOS-style colors for each category
@@ -72,6 +73,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Salud: '#FF3B30', Ropa: '#FF2D55', Servicios: '#FFCC00',
   Educación: '#34C759', Viajes: '#5AC8FA', Hogar: '#FF6B00',
   Tecnología: '#5856D6', Otros: '#8E8E93',
+  Traspaso: '#636366',
 };
 
 // Default category objects (stable IDs for Firestore)
