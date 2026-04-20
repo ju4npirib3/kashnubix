@@ -18,6 +18,7 @@ import { parseSpanishAmount } from '@/lib/parseSpanishAmount';
 import MovementDetailSheet from './MovementDetailSheet';
 import EditAccountModal from './EditAccountModal';
 import MsiDetailSheet from './MsiDetailSheet';
+import AddMovementModal from './AddMovementModal';
 import type { Account, Movement, MsiPlan } from '@/types';
 
 interface Props {
@@ -53,6 +54,7 @@ export default function AccountDetailSheet({ account, onClose, onDelete }: Props
   const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [selectedMsi, setSelectedMsi] = useState<MsiPlan | null>(null);
+  const [showAddMove, setShowAddMove] = useState(false);
   const dragControls = useDragControls();
 
   // Body scroll lock
@@ -70,7 +72,7 @@ export default function AccountDetailSheet({ account, onClose, onDelete }: Props
   const isUp = change >= 0;
   const totalIn = accountMoves.filter(m => m.type === 'income').reduce((s, m) => s + m.amount, 0);
   const totalOut = accountMoves.filter(m => m.type === 'expense').reduce((s, m) => s + m.amount, 0);
-  const recentMoves = [...accountMoves].sort((a, b) => b.date - a.date).slice(0, 15);
+  const sortedMoves = [...accountMoves].sort((a, b) => b.date - a.date);
 
   // Investment interest computed values
   const isInvestment = account.type === 'investment';
@@ -490,12 +492,22 @@ export default function AccountDetailSheet({ account, onClose, onDelete }: Props
                 )}
               </div>
 
-              {/* Recent movements */}
-              {recentMoves.length > 0 && (
-                <div className="mx-4 mt-4 mb-8">
-                  <p className="font-bold text-neutral-900 dark:text-white mb-3">Movimientos recientes</p>
+              {/* Movements */}
+              <div className="mx-4 mt-4 mb-24">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-bold text-neutral-900 dark:text-white">
+                    Movimientos {sortedMoves.length > 0 && <span className="text-neutral-400 font-normal text-sm">({sortedMoves.length})</span>}
+                  </p>
+                  <button
+                    onClick={() => setShowAddMove(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-bold rounded-xl active:scale-95 transition-transform"
+                  >
+                    + Nuevo
+                  </button>
+                </div>
+                {sortedMoves.length > 0 ? (
                   <div className="bg-white dark:bg-neutral-800 rounded-2xl overflow-hidden divide-y divide-neutral-100 dark:divide-neutral-700">
-                    {recentMoves.map(m => (
+                    {sortedMoves.map(m => (
                       <button
                         key={m.id}
                         onClick={() => setSelectedMovement(m)}
@@ -520,8 +532,13 @@ export default function AccountDetailSheet({ account, onClose, onDelete }: Props
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="bg-neutral-50 dark:bg-neutral-800 rounded-2xl p-6 flex flex-col items-center gap-2 text-center">
+                    <span className="text-3xl">📭</span>
+                    <p className="text-sm text-neutral-500">Sin movimientos aún</p>
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
 
@@ -540,6 +557,12 @@ export default function AccountDetailSheet({ account, onClose, onDelete }: Props
             cutoffDay={account?.cutoffDay}
             currency={account?.currency ?? 'MXN'}
             onClose={() => setSelectedMsi(null)}
+          />
+
+          <AddMovementModal
+            open={showAddMove}
+            onClose={() => setShowAddMove(false)}
+            defaultAccountId={account?.id}
           />
         </>
       )}

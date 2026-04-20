@@ -51,6 +51,10 @@ export async function addMovement(uid: string, data: Omit<Movement, 'id'>): Prom
   return ref.id;
 }
 
+export async function editMovement(uid: string, id: string, data: Partial<Omit<Movement, 'id'>>): Promise<void> {
+  await updateDoc(doc(db, `users/${uid}/movements/${id}`), data);
+}
+
 export async function deleteMovement(uid: string, id: string): Promise<void> {
   await deleteDoc(doc(db, `users/${uid}/movements/${id}`));
 }

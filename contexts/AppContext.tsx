@@ -6,7 +6,7 @@ import {
   subscribeAccounts, subscribeMovements, subscribeShortcuts,
   addAccount, updateAccount, deleteAccount, addMovement, deleteMovement, saveShortcuts,
   subscribeCategories, saveCategory, saveAllCategories, migrateAllAccountsToCurrency,
-  subscribeMsiPlans, addMsiPlan, deleteMsiPlan,
+  subscribeMsiPlans, addMsiPlan, deleteMsiPlan, editMovement,
 } from '@/lib/firestore';
 import { DEFAULT_SHORTCUTS, DEFAULT_EXPENSE_CATS, DEFAULT_INCOME_CATS, calcPercentChange } from '@/lib/utils';
 import type { Account, Movement, Shortcut, CustomCategory, MsiPlan } from '@/types';
@@ -28,6 +28,7 @@ interface AppContextValue {
   updateAccountFn: (id: string, data: Partial<Account>) => Promise<void>;
   deleteAccountFn: (id: string) => Promise<void>;
   addMovementFn: (data: Omit<Movement, 'id'>) => Promise<void>;
+  updateMovementFn: (old: Movement, updates: Partial<Omit<Movement, 'id'>>) => Promise<void>;
   deleteMovementFn: (id: string, accountId: string, type: string, amount: number) => Promise<void>;
   updateShortcutsFn: (shortcuts: Omit<Shortcut, 'id'>[]) => Promise<void>;
   saveCategoryFn: (cat: CustomCategory) => Promise<void>;
@@ -135,6 +136,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [user, accounts]);
 
+  const updateMovementFn = useCallback(async (old: Movement, updates: Partial<Omit<Movement, 'id'>>) => {
+    if (!user) return;
+    await editMovement(user.uid, old.id, updates);
+    const amountChanged = updates.amount !== undefined && updates.amount !== old.amount;
+    const typeChanged = updates.type !== undefined && updates.type !== old.type;
+    if (amountChanged || typeChanged) {
+      const account = accounts.find(a => a.id === old.accountId);
+      if (account) {
+        const isCredit = account.type === 'credit';
+        const oldAmt = old.amount;
+        const newAmt = updates.amount ?? old.amount;
+        const oldType = old.type;
+        const newType = updates.type ?? old.type;
+        const oldEffect = isCredit ? (oldType === 'expense' ? oldAmt : -oldAmt) : (oldType === 'income' ? oldAmt : -oldAmt);
+        const newEffect = isCredit ? (newType === 'expense' ? newAmt : -newAmt) : (newType === 'income' ? newAmt : -newAmt);
+        await updateAccount(user.uid, old.accountId, {
+          previousBalance: account.balance,
+          balance: account.balance - oldEffect + newEffect,
+        });
+      }
+    }
+  }, [user, accounts]);
+
   const deleteMovementFn = useCallback(async (id: string, accountId: string, type: string, amount: number) => {
     if (!user) return;
     const account = accounts.find(a => a.id === accountId);
@@ -227,7 +251,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       last24hIncome, last24hIncomeChange,
       last24hExpense, last24hExpenseChange,
       addAccountFn, updateAccountFn, deleteAccountFn,
-      addMovementFn, deleteMovementFn, updateShortcutsFn,
+      addMovementFn, updateMovementFn, deleteMovementFn, updateShortcutsFn,
       saveCategoryFn, saveAllCategoriesFn,
       addMsiPlanFn, deleteMsiPlanFn,
     }}>

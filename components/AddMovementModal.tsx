@@ -443,7 +443,7 @@ export default function AddMovementModal({
                         <div className="mt-3 bg-accent/5 dark:bg-accent/10 rounded-2xl p-4">
                           <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">Número de meses</p>
                           <div className="flex gap-2 flex-wrap">
-                            {[3, 6, 9, 12, 18, 24].map(m => (
+                            {[3, 6, 9, 12, 15, 18, 24].map(m => (
                               <button
                                 key={m}
                                 onClick={() => setMsiMonths(m)}
