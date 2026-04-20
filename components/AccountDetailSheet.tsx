@@ -53,14 +53,16 @@ export default function AccountDetailSheet({ account, onClose, onDelete }: Props
   const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [selectedMsi, setSelectedMsi] = useState<MsiPlan | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const dragControls = useDragControls();
 
-  // Body scroll lock
   useEffect(() => {
     if (account) document.body.classList.add('scroll-locked');
     else document.body.classList.remove('scroll-locked');
     return () => document.body.classList.remove('scroll-locked');
   }, [account]);
+
+  useEffect(() => { setConfirmDelete(false); }, [account?.id]);
 
   if (!account) return null;
 
@@ -201,19 +203,28 @@ export default function AccountDetailSheet({ account, onClose, onDelete }: Props
                     </p>
                     <p className="text-white font-bold text-xl">{account.name}</p>
                   </div>
-                  <div className="flex gap-2">
-                    {(accountMoves.length === 0 || isInvestment) && (
+                  <div className="flex gap-2 items-center">
+                    {(accountMoves.length === 0 || isInvestment) && !confirmDelete && (
                       <button onClick={() => setShowEdit(true)} className="p-2 rounded-full bg-white/20">
                         <Pencil className="w-4 h-4 text-white" />
                       </button>
                     )}
                     {onDelete && (
-                      <button onClick={() => { onDelete(account.id); onClose(); }}
-                        className="p-2 rounded-full bg-white/20">
-                        <Trash2 className="w-4 h-4 text-white" />
-                      </button>
+                      confirmDelete ? (
+                        <button
+                          onClick={() => { onDelete(account.id); onClose(); }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/80 text-white text-xs font-bold active:scale-95 transition-transform"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          ¿Confirmar?
+                        </button>
+                      ) : (
+                        <button onClick={() => setConfirmDelete(true)} className="p-2 rounded-full bg-white/20">
+                          <Trash2 className="w-4 h-4 text-white" />
+                        </button>
+                      )
                     )}
-                    <button onClick={onClose} className="p-2 rounded-full bg-white/20">
+                    <button onClick={() => { setConfirmDelete(false); onClose(); }} className="p-2 rounded-full bg-white/20">
                       <X className="w-4 h-4 text-white" />
                     </button>
                   </div>
