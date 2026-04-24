@@ -293,15 +293,17 @@ export default function AddAccountModal({ open, onClose }: Props) {
 
               {/* Color */}
               <div className="mb-6">
-                <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2 block">Color</label>
-                <div className="flex gap-3 flex-wrap">
+                <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-3 block">Color</label>
+                <div className="grid grid-cols-5 gap-3">
                   {ACCOUNT_COLORS.map(c => (
                     <button
                       key={c}
                       onClick={() => setColor(c)}
                       className={cn(
-                        'w-9 h-9 rounded-full transition-transform',
-                        color === c && 'scale-125 ring-2 ring-white ring-offset-1 dark:ring-offset-neutral-900'
+                        'w-full aspect-square rounded-2xl transition-all active:scale-90',
+                        color === c
+                          ? 'ring-[3px] ring-white ring-offset-2 dark:ring-offset-neutral-900 scale-105'
+                          : 'opacity-80 hover:opacity-100'
                       )}
                       style={{ backgroundColor: c }}
                     />

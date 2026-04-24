@@ -36,8 +36,18 @@ export function getInitials(name: string): string {
 }
 
 export const ACCOUNT_COLORS = [
-  '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B',
-  '#10B981', '#3B82F6', '#14B8A6', '#EF4444',
+  // Púrpuras / Índigos
+  '#6366F1', '#8B5CF6', '#7C3AED', '#A855F7', '#9333EA',
+  // Rosas / Rojos
+  '#EC4899', '#F43F5E', '#EF4444', '#DC2626', '#BE185D',
+  // Naranjas / Amarillos
+  '#F59E0B', '#F97316', '#FB923C', '#EAB308', '#D97706',
+  // Verdes
+  '#10B981', '#22C55E', '#16A34A', '#14B8A6', '#0D9488',
+  // Azules / Cielos
+  '#3B82F6', '#2563EB', '#1D4ED8', '#0EA5E9', '#0284C7',
+  // Neutros oscuros
+  '#334155', '#475569', '#57534E', '#1E293B', '#18181B',
 ];
 
 export const ACCOUNT_TYPE_LABELS: Record<string, string> = {
